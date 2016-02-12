@@ -1,0 +1,27 @@
+apply plugin: 'java'
+compileJava.options.fork = true
+compileJava.options.forkOptions.executable = "C:/Program Files/Java/jdk1.6.0_45/bin/javac"
+
+sourceCompatibility = 1.6
+targetCompatibility = 1.6
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    compile "org.slf4j:slf4j-api:1.7.15"
+}
+
+sourceSets {
+    main {
+        java {
+            srcDir 'src-jdbc4'
+        }
+    }
+}
+
+jar {
+    baseName = 'log4jdbc'
+    version =  '1.2.1'
+}
