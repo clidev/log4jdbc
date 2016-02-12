@@ -502,7 +502,7 @@ public class StatementSpy implements Statement, Spy
     String methodCall = "executeBatch()";
 
     int j=currentBatch.size();
-    StringBuffer batchReport = new StringBuffer("batching " + j + " statements:");
+    StringBuilder batchReport = new StringBuilder("batching " + j + " statements:");
 
     int fieldSize = (""+j).length();
 

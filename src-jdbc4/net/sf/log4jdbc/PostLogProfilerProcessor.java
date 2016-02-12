@@ -108,7 +108,7 @@ public class PostLogProfilerProcessor {
     String line;
     boolean blankLine;
 
-    StringBuffer sql = new StringBuffer();
+    StringBuilder sql = new StringBuilder();
 
     do
     {
@@ -127,7 +127,7 @@ public class PostLogProfilerProcessor {
         if (blankLine)
         {
           processSql(sql);
-          sql = new StringBuffer();
+          sql = new StringBuilder();
         }
         else
         {
@@ -185,7 +185,7 @@ public class PostLogProfilerProcessor {
   }
 
 
-  private void processSql(StringBuffer sql)
+  private void processSql(StringBuilder sql)
   {
     if (sql.length()>0)
     {

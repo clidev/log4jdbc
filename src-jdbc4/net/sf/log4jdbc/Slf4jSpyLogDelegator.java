@@ -15,6 +15,7 @@
  */
 package net.sf.log4jdbc;
 
+import io.spikex.core.util.XXHash32;
 import java.io.IOException;
 import java.io.LineNumberReader;
 import java.io.StringReader;
@@ -33,6 +34,9 @@ import org.slf4j.LoggerFactory;
  */
 public class Slf4jSpyLogDelegator implements SpyLogDelegator
 {
+        private static final int XXHash32_SALT = 0x727231;
+//        private final URI emitUrl;
+    
 	/**
 	 * Create a SpyLogDelegator specific to the Simple Logging Facade for Java
 	 * (slf4j).
@@ -468,6 +472,7 @@ public class Slf4jSpyLogDelegator implements SpyLogDelegator
 	public void sqlTimingOccured(Spy spy, long execTime, String methodCall,
 		String sql)
 	{
+            /* clidev: avoid this hassle
 		if (sqlTimingLogger.isErrorEnabled() &&
 			(!DriverSpy.DumpSqlFilteringOn || shouldSqlBeLogged(sql)))
 		{
@@ -497,6 +502,13 @@ public class Slf4jSpyLogDelegator implements SpyLogDelegator
 				}
 			}
 		}
+            */
+            
+            // clidev: prefer minimal overhead and let SLF4J do the hard work
+            // Format: c:<connection number> h:<hash> call:<jdbc call> ms:<exec time>
+            String hash = XXHash32.hashAsHex(sql, XXHash32_SALT);
+            sqlTimingLogger.info("c:{} h:{} ms:{} call:{} sql:{}", 
+                    spy.getConnectionNumber(), hash, execTime, methodCall, sql);
 	}
 
 	/**
@@ -518,7 +530,7 @@ public class Slf4jSpyLogDelegator implements SpyLogDelegator
 	private String buildSqlTimingDump(Spy spy, long execTime, String methodCall,
 		String sql, boolean debugInfo)
 	{
-		StringBuffer out = new StringBuffer();
+		StringBuilder out = new StringBuilder();
 
 		if (debugInfo)
 		{
@@ -533,7 +545,9 @@ public class Slf4jSpyLogDelegator implements SpyLogDelegator
 		// this is not very efficient but usually
 		// only one or the other dump should be on and not both.
 
-		sql = processSql(sql);
+                // clidev: Do not process the log lines (we want to avoid any extra 
+                // work to as efficient as possible)
+		// sql = processSql(sql);
 
 		out.append(sql);
 		out.append(" {executed in ");
@@ -566,7 +580,7 @@ public class Slf4jSpyLogDelegator implements SpyLogDelegator
 		{
 			String className;
 
-			StringBuffer dump = new StringBuffer();
+			StringBuilder dump = new StringBuilder();
 
 			/**
 			 * The DumpFullDebugStackTrace option is useful in some situations when we
