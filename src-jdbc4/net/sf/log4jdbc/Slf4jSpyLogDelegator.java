@@ -21,7 +21,12 @@ import java.io.LineNumberReader;
 import java.io.StringReader;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.StringTokenizer;
+import java.util.concurrent.TimeUnit;
+import net.jodah.expiringmap.ExpirationListener;
+import net.jodah.expiringmap.ExpirationPolicy;
+import net.jodah.expiringmap.ExpiringMap;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -34,8 +39,13 @@ import org.slf4j.LoggerFactory;
  */
 public class Slf4jSpyLogDelegator implements SpyLogDelegator
 {
+        private final SimpleCollectdClient collectClient;
+        private final Map<String, SqlEntry> sqlCalls;
+        
+        private static final String COLLECTD_PLUGIN = "sql";
+        private static final String COLLECTD_TYPE = "jdbc";
+
         private static final int XXHash32_SALT = 0x727231;
-//        private final URI emitUrl;
     
 	/**
 	 * Create a SpyLogDelegator specific to the Simple Logging Facade for Java
@@ -43,6 +53,35 @@ public class Slf4jSpyLogDelegator implements SpyLogDelegator
 	 */
 	public Slf4jSpyLogDelegator()
 	{
+            collectClient = new SimpleCollectdClient(COLLECTD_PLUGIN, COLLECTD_TYPE);
+            collectClient.init();
+            sqlCalls = ExpiringMap.builder()
+                            .expiration(10, TimeUnit.SECONDS)
+                            .expirationPolicy(ExpirationPolicy.CREATED)
+                            .expirationListener(new ExpirationListener<String, SqlEntry>() {
+                                @Override
+                                public void expired(String hash, SqlEntry entry) {
+                                    // Duration
+                                    collectClient.sendPacket(
+                                            "duration_ms",
+                                            entry.getHash(), 
+                                            entry.getDuration(),
+                                            "");
+                                    // Count
+                                    collectClient.sendPacket(
+                                            "count",
+                                            entry.getHash(), 
+                                            entry.getCount(),
+                                            "");
+                                    // SQL (up to 120 chars)
+                                    collectClient.sendPacket(
+                                            "sql",
+                                            entry.getHash(), 
+                                            entry.getDuration(), 
+                                            entry.getSql());
+                                }
+                            })
+                            .build();
 	}
 
 	// logs for sql and jdbc
@@ -509,6 +548,15 @@ public class Slf4jSpyLogDelegator implements SpyLogDelegator
             String hash = XXHash32.hashAsHex(sql, XXHash32_SALT);
             sqlTimingLogger.info("c:{} h:{} ms:{} call:{} sql:{}", 
                     spy.getConnectionNumber(), hash, execTime, methodCall, sql);
+            // Monitor only > 0 ms exec times
+            if (execTime > 0L) {
+                SqlEntry entry = sqlCalls.get(hash);
+                if (entry == null) {
+                   entry = new SqlEntry(hash, sql, methodCall); 
+                }
+                entry.setDuration(execTime);
+                sqlCalls.put(hash, entry);
+            }
 	}
 
 	/**
@@ -698,4 +746,51 @@ public class Slf4jSpyLogDelegator implements SpyLogDelegator
 			connectionLogger.info(spy.getConnectionNumber() + ". Connection closed");
 		}
 	}
+        
+        private static class SqlEntry {
+            
+            private final String hash;
+            private final String sql;
+            private final String methodCall;
+            private long duration;
+            private long count;
+            
+            private SqlEntry(
+                    final String hash,
+                    final String sql,
+                    final String methodCall) {
+                
+                this.hash = hash;
+                this.sql = sql;
+                this.methodCall = methodCall;
+            }
+
+            public String getHash() {
+                return hash;
+            }
+
+            public String getSql() {
+                return sql;
+            }
+
+            public String getMethodCall() {
+                return methodCall;
+            }
+            
+            public long getDuration() {
+                return duration;
+            }
+
+            public long getCount() {
+                return count;
+            }
+
+            public void setDuration(long duration) {
+                // Only interested in max duration
+                if (this.duration < duration) {
+                    this.duration = duration;
+                }
+                count++;
+            }
+        }
 }
