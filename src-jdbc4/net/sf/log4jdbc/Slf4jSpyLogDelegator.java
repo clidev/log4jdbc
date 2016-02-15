@@ -73,7 +73,7 @@ public class Slf4jSpyLogDelegator implements SpyLogDelegator
                                             entry.getHash(), 
                                             entry.getCount(),
                                             "");
-                                    // SQL (up to 120 chars)
+                                    // SQL (up to 100 chars)
                                     collectClient.sendPacket(
                                             "sql",
                                             entry.getHash(), 
