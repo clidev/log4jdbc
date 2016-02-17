@@ -95,8 +95,8 @@ public final class SimpleCollectdClient {
                 sb.append(":");
                 // Translate special chars
                 String sqlStr = sql.replace("'", " ");
-                if (sqlStr.length() > 100) {
-                    sb.append(sqlStr.substring(0, 100));
+                if (sqlStr.length() > 80) {
+                    sb.append(sqlStr.substring(0, 80));
                 } else {
                     sb.append(sqlStr);
                 }

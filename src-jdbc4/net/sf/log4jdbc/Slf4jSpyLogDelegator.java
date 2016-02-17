@@ -56,7 +56,7 @@ public class Slf4jSpyLogDelegator implements SpyLogDelegator
             collectClient = new SimpleCollectdClient(COLLECTD_PLUGIN, COLLECTD_TYPE);
             collectClient.init();
             sqlCalls = ExpiringMap.builder()
-                            .expiration(10, TimeUnit.SECONDS)
+                            .expiration(30, TimeUnit.SECONDS)
                             .expirationPolicy(ExpirationPolicy.CREATED)
                             .expirationListener(new ExpirationListener<String, SqlEntry>() {
                                 @Override
@@ -73,7 +73,7 @@ public class Slf4jSpyLogDelegator implements SpyLogDelegator
                                             entry.getHash(), 
                                             entry.getCount(),
                                             "");
-                                    // SQL (up to 100 chars)
+                                    // SQL (up to 80 chars)
                                     collectClient.sendPacket(
                                             "sql",
                                             entry.getHash(), 
