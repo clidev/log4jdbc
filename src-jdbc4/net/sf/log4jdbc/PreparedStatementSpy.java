@@ -104,6 +104,11 @@ public class PreparedStatementSpy extends StatementSpy implements PreparedStatem
 
   private String sql;
 
+  protected String dumpedSqlRaw()
+  {
+      return sql;
+  }
+
   protected String dumpedSql()
   {
     StringBuilder dumpSql = new StringBuilder();
@@ -409,7 +414,7 @@ public class PreparedStatementSpy extends StatementSpy implements PreparedStatem
   public boolean execute() throws SQLException
   {
     String methodCall = "execute()";
-    String dumpedSql = dumpedSql();
+    String dumpedSql = dumpedSqlRaw();
     reportSql(dumpedSql, methodCall);
     long tstart = System.currentTimeMillis();
     try
@@ -726,7 +731,7 @@ public class PreparedStatementSpy extends StatementSpy implements PreparedStatem
   public ResultSet executeQuery() throws SQLException
   {
     String methodCall = "executeQuery()";
-    String dumpedSql = dumpedSql();
+    String dumpedSql = dumpedSqlRaw();
     reportSql(dumpedSql, methodCall);
     long tstart = System.currentTimeMillis();
     try
@@ -1013,7 +1018,7 @@ public class PreparedStatementSpy extends StatementSpy implements PreparedStatem
   public int executeUpdate() throws SQLException
   {
     String methodCall = "executeUpdate()";
-    String dumpedSql = dumpedSql();
+    String dumpedSql = dumpedSqlRaw();
     reportSql(dumpedSql, methodCall);
     long tstart = System.currentTimeMillis();
     try
@@ -1099,7 +1104,7 @@ public class PreparedStatementSpy extends StatementSpy implements PreparedStatem
   public void addBatch() throws SQLException
   {
     String methodCall = "addBatch()";
-    currentBatch.add(dumpedSql());
+    currentBatch.add(dumpedSqlRaw());
     try
     {
       realPreparedStatement.addBatch();

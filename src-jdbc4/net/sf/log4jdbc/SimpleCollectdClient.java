@@ -97,6 +97,7 @@ public final class SimpleCollectdClient {
                 String sqlStr = sql.replace("'", " ");
                 if (sqlStr.length() > 80) {
                     sb.append(sqlStr.substring(0, 80));
+                    sb.append("..");
                 } else {
                     sb.append(sqlStr);
                 }

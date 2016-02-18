@@ -24,6 +24,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.StringTokenizer;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 import net.jodah.expiringmap.ExpirationListener;
 import net.jodah.expiringmap.ExpirationPolicy;
 import net.jodah.expiringmap.ExpiringMap;
@@ -39,6 +40,7 @@ import org.slf4j.LoggerFactory;
  */
 public class Slf4jSpyLogDelegator implements SpyLogDelegator
 {
+        private final AtomicInteger counter;
         private final SimpleCollectdClient collectClient;
         private final Map<String, SqlEntry> sqlCalls;
         
@@ -46,6 +48,11 @@ public class Slf4jSpyLogDelegator implements SpyLogDelegator
         private static final String COLLECTD_TYPE = "jdbc";
 
         private static final int XXHash32_SALT = 0x727231;
+        private static final int MAX_COUNT;
+        
+        static {
+            MAX_COUNT = Integer.parseInt(System.getProperty("net.sf.log4jdbc.max.statements", "1000"));
+        }
     
 	/**
 	 * Create a SpyLogDelegator specific to the Simple Logging Facade for Java
@@ -53,6 +60,7 @@ public class Slf4jSpyLogDelegator implements SpyLogDelegator
 	 */
 	public Slf4jSpyLogDelegator()
 	{
+            counter = new AtomicInteger(0);
             collectClient = new SimpleCollectdClient(COLLECTD_PLUGIN, COLLECTD_TYPE);
             collectClient.init();
             sqlCalls = ExpiringMap.builder()
@@ -61,19 +69,14 @@ public class Slf4jSpyLogDelegator implements SpyLogDelegator
                             .expirationListener(new ExpirationListener<String, SqlEntry>() {
                                 @Override
                                 public void expired(String hash, SqlEntry entry) {
-                                    // Duration
-                                    collectClient.sendPacket(
-                                            "duration_ms",
-                                            entry.getHash(), 
-                                            entry.getDuration(),
-                                            "");
-                                    // Count
+                                    counter.decrementAndGet();
+                                    // SQL and count (up to 80 chars)
                                     collectClient.sendPacket(
                                             "count",
                                             entry.getHash(), 
                                             entry.getCount(),
-                                            "");
-                                    // SQL (up to 80 chars)
+                                            entry.getSql());
+                                    // SQL and duration (up to 80 chars)
                                     collectClient.sendPacket(
                                             "sql",
                                             entry.getHash(), 
@@ -552,7 +555,14 @@ public class Slf4jSpyLogDelegator implements SpyLogDelegator
             if (execTime > 0L) {
                 SqlEntry entry = sqlCalls.get(hash);
                 if (entry == null) {
-                   entry = new SqlEntry(hash, sql, methodCall); 
+                   int n = counter.get();
+                   if (n < MAX_COUNT) {
+                        entry = new SqlEntry(hash, sql, methodCall); 
+                        counter.incrementAndGet();
+                   } else {
+                       sqlTimingLogger.warn("Maximum entries reached for SQL entry map: {}", MAX_COUNT);
+                       return;
+                   }
                 }
                 entry.setDuration(execTime);
                 sqlCalls.put(hash, entry);
